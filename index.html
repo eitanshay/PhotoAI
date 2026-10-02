@@ -253,13 +253,14 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-
       <aside class="stack" aria-label="Brief">
         <div class="raised stack" style="gap:14px">
           <div class="row" style="justify-content:space-between">
-            <span class="badge signal" id="cat-badge" hidden><i></i><span id="cat-text"></span></span>
+            <span class="row" style="gap:6px"><span class="badge signal" id="cat-badge" hidden><i></i><span id="cat-text"></span></span><span class="badge" id="face-badge" hidden><i></i><span id="face-text"></span></span></span>
             <span class="label" id="subject"></span>
           </div>
           <div class="status" id="status" aria-live="polite"><ul>
             <li data-s="read"><span class="d"></span>read the photo</li>
             <li data-s="brief"><span class="d"></span>write the brief</li>
             <li data-s="make"><span class="d"></span>regenerate</li>
+            <li data-s="check" hidden><span class="d"></span>check the faces</li>
           </ul></div>
           <div class="field">
             <label class="label" for="prompt">prompt</label>
@@ -320,6 +321,8 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-
     </div>
     <div class="field"><label class="label" for="m-text">text model (reads and writes the brief)</label><select id="m-text"></select></div>
     <div class="field"><label class="label" for="m-image">image model (regenerates)</label><select id="m-image"></select></div>
+    <div class="field"><label class="label" for="m-people">image model for photos with people</label><select id="m-people"></select><span class="hint">Pro models hold faces better and cost more per photo.</span></div>
+    <div class="field"><label class="label" for="m-face">face check</label><select id="m-face"><option value="off">off</option><option value="0">check and show a score</option><option value="1">check, retry once if it fails</option><option value="2">check, retry up to twice</option></select><span class="hint">A Gemini text model compares the faces before and after. Retries cost extra image calls.</span></div>
     <div class="field"><label class="label" for="m-custom">custom model ids (optional)</label><input id="m-custom" placeholder="text-model-id, image-model-id" spellcheck="false" autocapitalize="off"><span class="hint">Override the two selections above, comma separated.</span></div>
     <div class="row" style="justify-content:space-between">
       <button class="btn ghost" id="check-key">Check key</button>
@@ -369,8 +372,8 @@ const INTENSITY = {
   magazine: {label:'magazine', note:'Full reimagining for a cover shoot. Only the subject stays.'}
 };
 const PLAYBOOK_STUDIO = `
-portrait (single person, profile picture, headshot): cover shoot for a high-end fashion or lifestyle magazine. Seamless paper or textured studio backdrop in a color that flatters the skin and clothing, large beauty dish or octabox key slightly above and off axis, silver reflector fill under the chin, strip light rim to separate hair and shoulders, controlled specular highlights, crisp catchlights. 85 to 105mm lens at f/2 to f/4, camera at eye level. Premium retouching: even skin with visible natural texture and no plastic smoothing, refined hair, crisp polished wardrobe, a deliberate color palette.
-group (several people): editorial group portrait in a studio or on a designed set, large soft main light plus a hair light, clean seamless or textured backdrop, everyone flattered and sharp, coordinated palette, wardrobe pressed and polished.
+portrait (single person, profile picture, headshot): cover shoot for a high-end fashion or lifestyle magazine. Seamless paper or textured studio backdrop in a color that flatters the skin and clothing, large beauty dish or octabox key slightly above and off axis, silver reflector fill under the chin, strip light rim to separate hair and shoulders, controlled specular highlights, crisp catchlights. 85 to 105mm lens at f/2 to f/4, camera at eye level. Retouching is natural and texture-preserving: never reshape any facial or body feature. Polished wardrobe and a deliberate color palette.
+group (several people): editorial group portrait in a studio or on a designed set, large soft main light plus a hair light, clean seamless or textured backdrop, everyone sharp, coordinated palette, wardrobe pressed and polished, no face or body reshaping.
 food: cookbook cover or Bon Appetit grade food photography. Plate styled on a premium surface chosen to complement the dish (aged wood, marble, ceramic, linen), one large softbox from back left with a white bounce card, steam or glisten where it belongs, fresh garnish, intentional props like cutlery and a napkin in soft focus, 90mm lens at f/4 with shallow depth of field, rich appetizing color.
 car (cars, motorcycles): automotive magazine cover shoot. Dark or white infinity studio, or wet asphalt at blue hour. Huge overhead softbox and long strip lights tracing the body lines, deep polished paint with controlled reflections, glossy floor reflection, rim light on the shoulders, wheels clean and aligned, 35 to 70mm lens at a low camera height.
 landscape (nature, travel, outdoor scenery): National Geographic or travel magazine hero shot. Golden hour or blue hour light, dramatic but natural sky, luminous layered depth, recovered highlights, rich color grade, crisp foreground detail, strong leading lines.
@@ -409,7 +412,9 @@ function getSettings() {
   return {
     key: store.get('es07.key', ''),
     text: custom[0] || store.get('es07.text', TEXT_MODELS[0]),
-    image: custom[1] || store.get('es07.image', IMAGE_MODELS[0])
+    image: custom[1] || store.get('es07.image', IMAGE_MODELS[0]),
+    people: store.get('es07.people', 'gemini-3-pro-image'),
+    face: store.get('es07.facecheck', '1')
   };
 }
 
@@ -466,6 +471,48 @@ async function gemini(model, body, signal) {
 }
 function partsOf(json) { return (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []; }
 
+async function cropFaces(photo, boxes) {
+  const out = [];
+  const src = photo.src; if (!src) return out;
+  for (const [y0, x0, y1, x1] of boxes || []) {
+    let top = y0 / 1000 * src.height, left = x0 / 1000 * src.width, bottom = y1 / 1000 * src.height, right = x1 / 1000 * src.width;
+    if (!(bottom > top && right > left)) continue;
+    if ((right - left) < src.width * 0.03 || (bottom - top) < src.height * 0.03) continue;
+    const padX = (right - left) * 0.45, padY = (bottom - top) * 0.45;
+    left = Math.max(0, left - padX); right = Math.min(src.width, right + padX); top = Math.max(0, top - padY); bottom = Math.min(src.height, bottom + padY);
+    const w = right - left, h = bottom - top, k = Math.min(1, 768 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(src, left, top, w, h, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+    if (blob) out.push(await blobToB64(blob));
+  }
+  return out;
+}
+async function toJpegB64(blob, maxSide) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); if (bmp.close) bmp.close();
+  return blobToB64(await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9)));
+}
+async function verifyFaces(crops, resultBlob, signal) {
+  const { text } = getSettings();
+  try {
+    const res = await toJpegB64(resultBlob, 1536);
+    const instruction = `You are a forensic face comparison reviewer. The first ${crops.length} image(s) are close-ups of the people in an ORIGINAL photo. The last image is a NEW photo that should show the same people. Decide whether each original person appears in the new photo with an identical face. Judge only facial identity: bone structure, eyes, nose, mouth, ears, hairline, facial hair, age and skin tone. Ignore lighting, background, clothing, color grade and sharpness.
+Return ONLY JSON: {"score": integer 1 to 10 (10 = indistinguishable, 7 = clearly the same person with small differences, 4 = resembles but is a different person, 1 = unrelated), "differences": array of up to 4 short strings naming specific facial differences}.`;
+    const json = await gemini(text, {
+      contents: [{ role: 'user', parts: [{ text: instruction }, ...crops.map(d => ({ inlineData: { mimeType: 'image/jpeg', data: d } })), { inlineData: { mimeType: 'image/jpeg', data: res } }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0 }
+    }, signal);
+    const raw = partsOf(json).map(p => p.text || '').join('').trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const o = JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+    const score = Math.max(1, Math.min(10, Math.round(Number(o.score))));
+    if (!Number.isFinite(score)) return null;
+    return { score, differences: Array.isArray(o.differences) ? o.differences.slice(0, 4).map(String) : [] };
+  } catch (e) { if (e.name === 'AbortError') throw e; return null; }
+}
+
 async function analyze(photo, signal) {
   const { text } = getSettings();
   const lvl = S.intensity;
@@ -475,9 +522,14 @@ async function analyze(photo, signal) {
 Genre guidance, use the matching entry:
 ${PLAYBOOK}
 
+If people are present, these rules override everything else: the "prompt" must never describe, mention or change any person's face, body, age, hair, skin or expression. Do not use words such as flawless, perfect, beautiful, gorgeous, model, symmetrical, youthful, slim or glamorous. Only specify the set, lighting, camera, color grade, wardrobe polish and natural texture-preserving retouching.
+
 Return ONLY JSON, no code fences, with exactly these keys:
 {"category": one of ${cats},
  "subject": a short noun phrase naming the main subject (max 8 words),
+ "people": integer, how many people have a visible face (0 if none),
+ "faces": array of up to 4 boxes [ymin,xmin,ymax,xmax], each coordinate 0 to 1000 relative to the image, tight around the largest visible faces including forehead and chin, empty array if no people,
+ "identity": if people are present, a neutral description (max 30 words) of the main person's or people's identifying features: approximate age range, hair color and style, facial hair, glasses, skin tone, distinguishing marks; otherwise an empty string,
  "issues": array of up to 4 short strings naming what is weak in this photo (lighting, color, noise, clutter, framing and so on),
  "prompt": 70 to 140 words, imperative, concrete photographic language (light direction and quality, color temperature, contrast, depth of field, sharpness, background cleanliness, retouch level). Fix the listed issues. Name the subject in the prompt. Do not mention the style preset. Do not use bullet points.}
 
@@ -491,9 +543,14 @@ Intensity: ${lvl === 'studio'
 Genre guidance, use the matching entry and push it further:
 ${PLAYBOOK_STUDIO}
 
+If people are present, these rules override everything else: the "prompt" must never describe, mention or change any person's face, body, age, hair, skin or expression. Do not use words such as flawless, perfect, beautiful, gorgeous, model, symmetrical, youthful, slim or glamorous. Only specify the set, lighting, camera, color grade, wardrobe polish and natural texture-preserving retouching.
+
 Return ONLY JSON, no code fences, with exactly these keys:
 {"category": one of ${cats},
  "subject": a short noun phrase naming the main subject (max 8 words),
+ "people": integer, how many people have a visible face (0 if none),
+ "faces": array of up to 4 boxes [ymin,xmin,ymax,xmax], each coordinate 0 to 1000 relative to the image, tight around the largest visible faces including forehead and chin, empty array if no people,
+ "identity": if people are present, a neutral description (max 30 words) of the main person's or people's identifying features: approximate age range, hair color and style, facial hair, glasses, skin tone, distinguishing marks; otherwise an empty string,
  "issues": array of up to 4 short strings naming what is weak in the original photo,
  "prompt": 140 to 210 words, imperative, concrete, written like a call sheet. Open by naming the subject. Then specify in prose: the set and backdrop (specific materials and colors), the full lighting plan (key, fill, rim or kicker, modifiers, direction, quality, contrast ratio), camera and lens (focal length, aperture, camera height), color palette and grade, styling and retouching level, and the mood. Make bold, specific choices. Do not mention any style preset. Do not use bullet points. Do not restate identity constraints, they are added automatically.}`;
   const json = await gemini(text, {
@@ -509,17 +566,31 @@ Return ONLY JSON, no code fences, with exactly these keys:
     out = { category: 'other', subject: 'photo', issues: [], prompt: lvl === 'refine' ? 'Re-render this photo as a professional photographer would have shot it: balanced exposure, accurate color, clean soft light, reduced noise, crisp detail and a tidy background, keeping everything in the scene exactly as it is.' : 'Create a magazine cover quality photograph of the main subject on a seamless studio backdrop in a complementary color. Large softbox key from camera left, soft fill, a strip light rim for separation, 85mm lens at f/2.8, camera at the subject eye level, rich controlled color grade, premium retouching with natural texture, polished and confident mood.' };
   }
   if (!['portrait','group','food','car','landscape','architecture','product','pet','street','other'].includes(out.category)) out.category = 'other';
+  out.people = Math.max(0, parseInt(out.people, 10) || 0);
+  out.faces = Array.isArray(out.faces) ? out.faces.filter(b => Array.isArray(b) && b.length === 4 && b.every(n => typeof n === 'number')).slice(0, 4) : [];
+  out.identity = typeof out.identity === 'string' ? out.identity.slice(0, 300) : '';
+  if (out.people === 0 && out.faces.length) out.people = out.faces.length;
+  out.crops = await cropFaces(photo, out.faces);
   return out;
 }
 
-async function regenerate(photo, promptText, presetKey, signal) {
-  const { image } = getSettings();
+async function regenerate(photo, promptText, presetKey, signal, strict) {
+  const st = getSettings();
+  const an = S.analysis || {};
+  const people = (an.people || 0) > 0;
+  if (people && an.crops === undefined) an.crops = await cropFaces(photo, an.faces);
+  const crops = people ? (an.crops || []) : [];
+  const model = people ? st.people : st.image;
   const style = `Style direction: ${PRESETS[presetKey].clause}`;
-  const full = S.intensity === 'refine'
-    ? `${promptText.trim()}\n\n${style}\n\n${GUARD_REFINE}`
-    : `Use the attached photo as the reference for the main subject. Create a brand-new professional photograph of that exact subject, shot as described below.\n\n${promptText.trim()}\n\n${style}\n\n${IDENTITY}`;
-  const json = await gemini(image, {
-    contents: [{ role: 'user', parts: [{ text: full }, { inlineData: { mimeType: 'image/jpeg', data: photo.b64 } }] }],
+  const lock = people ? `PEOPLE LOCK: Image 1 is the photograph to edit.${crops.length ? ` Image${crops.length > 1 ? 's 2 to ' + (crops.length + 1) + ' are close-ups' : ' 2 is a close-up'} of the faces in it, given as identity references.` : ''} Every person must remain exactly who they are: keep each face, head shape, bone structure, eyes, nose, mouth, ears, skin tone and texture, hair, facial hair, age, expression, gaze direction and body proportions identical to the original photo${crops.length ? ' and the close-ups' : ''}. ${an.identity ? 'Identifying features that must be preserved: ' + an.identity + '. ' : ''}Do not beautify, slim, smooth skin, change age, change expression, or replace anyone with a similar looking different person. Only the environment, lighting, camera look, color grade and wardrobe polish may change.` : '';
+  const retry = strict ? `\n\nThe previous attempt failed an identity check. Differences found: ${strict}. Correct this: the faces must match the original exactly.` : '';
+  const tail = people ? '\n\nReminder: the people must look identical to the original photo.' : '';
+  let full;
+  if (S.intensity === 'refine') full = `${promptText.trim()}\n\n${style}\n\n${GUARD_REFINE}${people ? '\n\n' + lock : ''}${retry}${tail}`;
+  else if (people) full = `Edit the attached photograph as described below.\n\n${lock}\n\n${promptText.trim()}\n\n${style}\n\n${IDENTITY}${retry}${tail}`;
+  else full = `Use the attached photo as the reference for the main subject. Create a brand-new professional photograph of that exact subject, shot as described below.\n\n${promptText.trim()}\n\n${style}\n\n${IDENTITY}`;
+  const json = await gemini(model, {
+    contents: [{ role: 'user', parts: [{ text: full }, { inlineData: { mimeType: 'image/jpeg', data: photo.b64 } }, ...crops.map(d => ({ inlineData: { mimeType: 'image/jpeg', data: d } }))] }],
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
   }, signal);
   const parts = partsOf(json);
@@ -553,9 +624,8 @@ async function prepare(file) {
   const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   c.getContext('2d').drawImage(bmp, 0, 0, w, h);
-  if (bmp.close) bmp.close();
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
-  return { blob, b64: await blobToB64(blob), w, h, url: URL.createObjectURL(blob) };
+  return { blob, b64: await blobToB64(blob), w, h, url: URL.createObjectURL(blob), src: bmp };
 }
 
 /* ---------- state + view ---------- */
@@ -600,7 +670,7 @@ function setPreset(k) {
   if (S.photo && S.analysis && !S.busy) regen();
 }
 function setSteps(state) { // state: read|brief|make|done|idle
-  const order = ['read', 'brief', 'make'];
+  const order = ['read', 'brief', 'make', 'check'];
   $$('#status li').forEach(li => {
     const i = order.indexOf(li.dataset.s), cur = order.indexOf(state);
     li.className = state === 'done' || (cur > -1 && i < cur) ? 'done' : (i === cur ? 'on' : '');
@@ -671,19 +741,41 @@ async function startFlow(file) {
     await runRegen();
   } catch (e) { fail(e); }
 }
+function setFace(v) {
+  const b = $('#face-badge'); if (!v) { b.hidden = true; return; }
+  b.hidden = false; b.className = 'badge ' + (v.score >= 7 ? 'ok' : 'warn');
+  $('#face-text').textContent = 'face match ' + v.score + '/10';
+  b.title = v.differences && v.differences.length ? v.differences.join('; ') : '';
+}
 async function runRegen() {
-  setSteps('make'); setBusy(true, 'regenerating');
   S.ctl = new AbortController();
   const promptText = $('#prompt').value.trim() || S.analysis.prompt;
   const t0 = Date.now();
-  const blob = await regenerate(S.photo, promptText, S.preset, S.ctl.signal);
+  const mode = getSettings().face;
+  const people = (S.analysis.people || 0) > 0;
+  if (people && S.analysis.crops === undefined) S.analysis.crops = await cropFaces(S.photo, S.analysis.faces);
+  const canCheck = people && mode !== 'off' && (S.analysis.crops || []).length > 0;
+  const retries = canCheck ? parseInt(mode, 10) || 0 : 0;
+  $('#status li[data-s=check]').hidden = !canCheck;
+  setFace(null);
+  let best = null, strict = '';
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    setSteps('make'); setBusy(true, attempt ? 'retry ' + attempt : 'regenerating');
+    const blob = await regenerate(S.photo, promptText, S.preset, S.ctl.signal, strict);
+    let v = null;
+    if (canCheck) { setSteps('check'); setBusy(true, 'checking faces'); v = await verifyFaces(S.analysis.crops, blob, S.ctl.signal); }
+    if (!best || (v && (!best.v || v.score > best.v.score))) best = { blob, v };
+    if (!v || v.score >= 7) break;
+    strict = (v.differences.length ? v.differences.join('; ') : 'faces do not match the references');
+  }
+  const blob = best.blob;
   if (S.resultUrl) URL.revokeObjectURL(S.resultUrl);
   S.resultBlob = blob; S.resultUrl = URL.createObjectURL(blob); S.mode = 'slide'; S.pos = 50;
   S.lastRun = Date.now() - t0;
-  setSteps('done'); setBusy(false);
+  setSteps('done'); setBusy(false); setFace(best.v);
   $('#elapsed').textContent = (S.lastRun / 1000).toFixed(1) + 's · done';
   updateCompare(); clearError();
-  db.put({ id: 'p' + Date.now(), ts: Date.now(), category: S.analysis.category, subject: S.analysis.subject, preset: S.preset, intensity: S.intensity, prompt: promptText, orig: S.photo.blob, result: blob });
+  db.put({ id: 'p' + Date.now(), ts: Date.now(), category: S.analysis.category, subject: S.analysis.subject, preset: S.preset, intensity: S.intensity, prompt: promptText, people: S.analysis.people || 0, faces: S.analysis.faces || [], identity: S.analysis.identity || '', orig: S.photo.blob, result: blob });
 }
 async function regen() {
   if (!S.photo || !S.analysis || S.busy) return;
@@ -698,7 +790,8 @@ function fail(e) {
 }
 function resetResult() {
   if (S.resultUrl) URL.revokeObjectURL(S.resultUrl);
-  if (S.photo) URL.revokeObjectURL(S.photo.url);
+  if (S.photo) { URL.revokeObjectURL(S.photo.url); if (S.photo.src && S.photo.src.close) S.photo.src.close(); }
+  setFace(null);
   S.resultBlob = null; S.resultUrl = null; S.photo = null; S.analysis = null; S.mode = 'slide'; S.pos = 50;
 }
 
@@ -754,8 +847,8 @@ async function openItem(it) {
   resetResult();
   const url = URL.createObjectURL(it.orig);
   const bmp = await createImageBitmap(it.orig);
-  S.photo = { blob: it.orig, b64: await blobToB64(it.orig), w: bmp.width, h: bmp.height, url };
-  S.analysis = { category: it.category, subject: it.subject, prompt: it.prompt };
+  S.photo = { blob: it.orig, b64: await blobToB64(it.orig), w: bmp.width, h: bmp.height, url, src: bmp };
+  S.analysis = { category: it.category, subject: it.subject, prompt: it.prompt, people: it.people || 0, faces: it.faces || [], identity: it.identity || '' };
   S.preset = it.preset in PRESETS ? it.preset : S.preset; renderPresets();
   if (it.intensity in INTENSITY) { S.intensity = it.intensity; renderIntensity(); }
   S.resultBlob = it.result; S.resultUrl = URL.createObjectURL(it.result);
@@ -775,6 +868,7 @@ function openSettings() {
   const s = { key: store.get('es07.key', ''), text: store.get('es07.text', TEXT_MODELS[0]), image: store.get('es07.image', IMAGE_MODELS[0]) };
   $('#key').value = s.key; $('#key').type = 'password'; $('#showkey').textContent = 'Show';
   fillSelect($('#m-text'), TEXT_MODELS, s.text); fillSelect($('#m-image'), IMAGE_MODELS, s.image);
+  fillSelect($('#m-people'), IMAGE_MODELS, store.get('es07.people', 'gemini-3-pro-image')); $('#m-face').value = store.get('es07.facecheck', '1');
   $('#m-custom').value = store.get('es07.custom', '');
   const d = $('#settings'); if (!d.open) d.showModal();
 }
@@ -782,6 +876,7 @@ function refreshModelsLine() { const s = getSettings(); $('#models-line').textCo
 function persistSettings() {
   store.set('es07.key', $('#key').value.trim());
   store.set('es07.text', $('#m-text').value); store.set('es07.image', $('#m-image').value);
+  store.set('es07.people', $('#m-people').value); store.set('es07.facecheck', $('#m-face').value);
   store.set('es07.custom', $('#m-custom').value.trim());
   refreshModelsLine();
 }
