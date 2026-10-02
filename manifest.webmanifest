@@ -1,0 +1,15 @@
+{
+  "name": "polish · ES-07",
+  "short_name": "polish",
+  "description": "Pick a photo. Get the version a professional would have shot.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E9E8E4",
+  "theme_color": "#E9E8E4",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

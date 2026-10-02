@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>polish · ES-07</title>
+<meta name="description" content="Pick a photo. Get the version a professional would have shot.">
+<meta name="theme-color" content="#E9E8E4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="polish">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Eitan Shay design system tokens */
+:root{
+  --base:#E9E8E4; --panel:#F6F5F2; --paper:#FFFFFF; --line:#D3D1CB; --line-soft:#DFDDD8;
+  --ink:#1D1D1B; --ink-2:#4B4A46; --ink-3:#77756F; --ink-4:#A9A7A1;
+  --signal:#F0662A; --signal-press:#D9551C; --signal-soft:#FBE1D5; --on-signal:#1D1D1B;
+  --night:#1D1D1B; --night-2:#2A2A27; --night-3:#3A3936; --night-line:#44433F; --night-ink:#ECEBE7; --night-ink-2:#B5B2AB;
+  --ok:#3F9A5B; --warn:#C98A12; --error:#C8372D;
+  --font-sans:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --radius-sm:7px; --radius-md:10px; --radius-lg:14px; --radius-xl:16px; --radius-2xl:20px; --radius-pill:999px;
+  --shadow-key:inset 0 -3px 0 rgba(0,0,0,.14);
+  --shadow-float:0 12px 40px rgba(29,29,27,.14),0 2px 6px rgba(29,29,27,.06);
+  --shadow-focus:0 0 0 3px #fbe1d5,0 0 0 1px #f0662a;
+  --dur-fast:120ms; --dur:180ms; --dur-slow:320ms; --ease:cubic-bezier(.2,.7,.2,1);
+  --gutter:16px; --container:1120px;
+  --badge-signal-fg:#8A3410; --badge-ok-bg:#DDEEDF; --badge-ok-fg:#245C35; --badge-warn-bg:#F5E8C8; --badge-warn-fg:#6E4B06; --badge-error-bg:#F6DAD7; --badge-error-fg:#7E1F18;
+}
+/* Dark theme: raw palette swaps to night surfaces */
+@media (prefers-color-scheme:dark){
+  :root{
+    --base:#1D1D1B; --panel:#2A2A27; --paper:#3A3936; --line:#44433F; --line-soft:#3A3936;
+    --ink:#ECEBE7; --ink-2:#B5B2AB; --ink-3:#9A978F; --ink-4:#6B6963;
+    --signal-soft:#4A2615;
+    --badge-signal-fg:#FBE1D5; --badge-ok-bg:#1F3B29; --badge-ok-fg:#BFE3C9; --badge-warn-bg:#46350C; --badge-warn-fg:#F2DCA3; --badge-error-bg:#4A1E1A; --badge-error-fg:#F5C9C4;
+    --shadow-focus:0 0 0 3px #4a2615,0 0 0 1px #f0662a;
+  }
+  meta[name=theme-color]{content:#1D1D1B}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--base);color:var(--ink);font:400 16px/1.55 var(--font-sans);-webkit-font-smoothing:antialiased;min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+::selection{background:var(--signal-soft)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+[hidden]{display:none!important}
+.wrap{max-width:var(--container);margin:0 auto;padding:0 var(--gutter) 56px}
+
+/* type */
+.label{font:500 11px/1.2 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.display{font-weight:600;font-size:clamp(40px,9vw,68px);line-height:.92;letter-spacing:-.04em;margin:0;text-transform:lowercase}
+.h2{font-weight:600;font-size:clamp(26px,5vw,34px);line-height:1.05;letter-spacing:-.03em;margin:0}
+.h3{font-weight:600;font-size:24px;line-height:1.15;letter-spacing:-.03em;margin:0}
+.lead{font-size:19px;line-height:1.5;color:var(--ink-2);margin:0;max-width:34em}
+.small{font-size:14px;line-height:1.5;color:var(--ink-2)}
+.code{font:400 13px/1.5 var(--font-mono)}
+
+/* nav */
+.nav{position:sticky;top:max(16px,env(safe-area-inset-top));z-index:20;margin:16px 0 var(--gutter);background:var(--paper);border-radius:var(--radius-xl);padding:8px 8px 8px 18px;display:flex;align-items:center;gap:12px}
+.logo{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:0}
+.logo .mark{display:inline-flex;gap:2.8px;align-items:center}
+.logo .c{width:20px;height:20px;border-radius:50%;background:var(--ink)}
+.logo .s{width:20px;height:20px;border-radius:4.4px;background:var(--signal)}
+.logo .w{font-weight:600;font-size:18px;letter-spacing:-.04em;line-height:1;margin-left:6px;white-space:nowrap}
+.model{font:700 11px/1 var(--font-mono);letter-spacing:.04em;padding:5px 9px;border-radius:var(--radius-pill);background:var(--panel);color:var(--ink);margin-left:2px}
+.nav .sp{flex:1}
+.navlinks{display:flex;gap:2px}
+.pill{border:0;background:transparent;font:500 12px/1 var(--font-mono);text-transform:lowercase;color:var(--ink-2);padding:9px 14px;border-radius:var(--radius-pill);transition:background var(--dur) var(--ease)}
+.pill:hover{background:rgba(127,127,120,.14)}
+.pill[aria-current=page]{background:var(--ink);color:var(--panel)}
+.ibtn{width:40px;height:40px;border-radius:50%;border:0;background:var(--panel);display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur) var(--ease),transform var(--dur-fast) var(--ease)}
+.ibtn:hover{background:var(--line-soft)}
+.ibtn:active{transform:scale(.97)}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 18px;border-radius:var(--radius-pill);border:1px solid transparent;font-weight:600;font-size:15px;transition:background var(--dur) var(--ease),transform var(--dur-fast) var(--ease);white-space:nowrap}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.lg{height:52px;padding:0 24px;font-size:17px}
+.btn.sm{height:32px;padding:0 14px;font-size:13px}
+.btn.primary{background:var(--signal);color:var(--on-signal);box-shadow:var(--shadow-key)}
+.btn.primary:hover:not(:disabled){background:var(--signal-press)}
+.btn.ink{background:var(--ink);color:var(--panel);box-shadow:var(--shadow-key)}
+.btn.ink:hover:not(:disabled){filter:brightness(1.12)}
+.btn.secondary{background:var(--paper);color:var(--ink);border-color:var(--line)}
+.btn.secondary:hover:not(:disabled){background:var(--panel)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover:not(:disabled){background:rgba(127,127,120,.14)}
+
+/* panels */
+.panel{background:var(--panel);border-radius:var(--radius-2xl);padding:clamp(20px,4vw,40px)}
+.raised{background:var(--paper);border-radius:var(--radius-xl);padding:20px}
+.stack{display:flex;flex-direction:column;gap:var(--gutter)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:var(--gutter)}
+.badge{display:inline-flex;align-items:center;gap:6px;font:500 11px/1 var(--font-mono);letter-spacing:.04em;text-transform:lowercase;padding:5px 10px;border-radius:var(--radius-pill);background:var(--base);color:var(--ink-2)}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--ink-4)}
+.badge.signal{background:var(--signal-soft);color:var(--badge-signal-fg)} .badge.signal i{background:var(--signal)}
+.badge.ok{background:var(--badge-ok-bg);color:var(--badge-ok-fg)} .badge.ok i{background:var(--ok)}
+.badge.warn{background:var(--badge-warn-bg);color:var(--badge-warn-fg)} .badge.warn i{background:var(--warn)}
+.badge.error{background:var(--badge-error-bg);color:var(--badge-error-fg)} .badge.error i{background:var(--error)}
+.tag{display:inline-flex;align-items:center;font-size:13px;font-weight:500;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:background var(--dur) var(--ease)}
+.tag:hover{background:var(--panel)}
+.tag[aria-pressed=true]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tabs{display:inline-flex;gap:2px;padding:4px;border-radius:var(--radius-pill);background:var(--base)}
+.tabs button{border:0;padding:7px 14px;border-radius:var(--radius-pill);background:transparent;font:500 12px/1 var(--font-mono);color:var(--ink-2)}
+.tabs button[aria-pressed=true],.tabs button[aria-selected=true]{background:var(--paper);color:var(--ink);font-weight:700}
+.field{display:flex;flex-direction:column;gap:6px;width:100%}
+.field input,.field textarea,.field select{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-md);padding:0 14px;height:44px;font-size:15px;width:100%;transition:box-shadow var(--dur) var(--ease)}
+.field textarea{height:auto;padding:12px 14px;line-height:1.5;resize:vertical;min-height:150px}
+.field .hint{font-size:13px;color:var(--ink-2)}
+.panel .field input,.panel .field textarea{background:var(--paper)}
+
+/* placeholder stripe */
+.stripe{background:repeating-linear-gradient(135deg,var(--paper) 0 10px,var(--panel) 10px 11px)}
+.drop{border-radius:var(--radius-xl);border:1px dashed var(--line);padding:clamp(28px,6vw,56px) 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.drop.over{border-color:var(--signal);background-color:var(--signal-soft)}
+
+/* how it works */
+.steps{grid-template-columns:repeat(3,1fr)}
+.step{background:var(--paper);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:8px}
+.step b{font:700 22px/1 var(--font-mono)}
+@media(max-width:720px){.steps{grid-template-columns:1fr}.navlinks .pill{padding:9px 10px}.logo .w{font-size:16px}.model{display:none}}
+
+/* workspace */
+.work{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:start}
+@media(max-width:860px){.work{grid-template-columns:1fr}}
+.stage{background:var(--panel);border-radius:var(--radius-2xl);padding:12px;display:flex;flex-direction:column;gap:12px}
+.stage-top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 4px 0}
+.cmp{position:relative;width:100%;border-radius:var(--radius-xl);overflow:hidden;background:var(--paper);touch-action:pan-y;user-select:none;-webkit-user-select:none;max-height:72vh;margin:0 auto}
+.cmp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-drag:none}
+.cmp .after{clip-path:inset(0 0 0 var(--pos,50%))}
+.cmp .tagl{position:absolute;top:12px;padding:5px 10px;border-radius:var(--radius-pill);background:var(--ink);color:var(--panel);font:500 11px/1 var(--font-mono);letter-spacing:.06em;text-transform:lowercase}
+.cmp .tagl.l{left:12px}.cmp .tagl.r{right:12px;background:var(--signal);color:var(--on-signal)}
+.handle{position:absolute;top:0;bottom:0;left:var(--pos,50%);width:0;pointer-events:none}
+.handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:var(--panel)}
+.handle .knob{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--panel);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-float)}
+.cmp:focus-visible{box-shadow:var(--shadow-focus)}
+.busy .cmp::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(29,29,27,.18) 0 10px,rgba(29,29,27,.08) 10px 11px);pointer-events:none}
+.progress{height:4px;border-radius:var(--radius-pill);background:var(--base);overflow:hidden;position:relative}
+.progress i{position:absolute;top:0;bottom:0;width:34%;background:var(--signal);border-radius:var(--radius-pill);animation:slide 1.4s var(--ease) infinite}
+@keyframes slide{0%{left:-34%}100%{left:100%}}
+@media(prefers-reduced-motion:reduce){.progress i{animation:none;width:100%}}
+.status{display:flex;flex-direction:column;gap:8px}
+.status li{list-style:none;display:flex;align-items:center;gap:10px;font:500 12px/1.2 var(--font-mono);color:var(--ink-2);text-transform:lowercase}
+.status ul{margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.status .d{width:8px;height:8px;border-radius:50%;background:var(--ink-4);flex:none}
+.status li.on{color:var(--ink)} .status li.on .d{background:var(--signal)}
+.status li.done .d{background:var(--ok)}
+
+/* library */
+.lib{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.tile{background:var(--paper);border-radius:var(--radius-lg);overflow:hidden;border:0;padding:0;text-align:left;display:flex;flex-direction:column;transition:transform var(--dur) var(--ease)}
+.tile:hover{transform:translateY(-2px)}
+.tile img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.tile .meta{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+
+/* dialog */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;color:var(--ink)}
+dialog::backdrop{background:rgba(29,29,27,.32)}
+.dlg{background:var(--paper);border-radius:var(--radius-2xl);box-shadow:var(--shadow-float);padding:24px;width:min(520px,calc(100vw - 32px));display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 32px);overflow:auto;margin:auto}
+dialog[open]{display:flex;width:100vw;height:100vh;position:fixed;inset:0;align-items:center;justify-content:center}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;display:inline-flex;align-items:center;gap:12px;padding:10px 16px;border-radius:var(--radius-pill);background:var(--ink);color:var(--panel);box-shadow:var(--shadow-float);font-size:14px;max-width:calc(100vw - 32px);transition:opacity var(--dur-slow) var(--ease)}
+.toast .d{width:8px;height:8px;border-radius:50%;background:var(--signal);flex:none}
+.toast.error .d{background:var(--error)} .toast.ok .d{background:var(--ok)}
+.toast:not(.show){opacity:0;pointer-events:none}
+
+.errbox{background:var(--paper);border-radius:var(--radius-lg);padding:16px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--error)}
+.errbox p{margin:0;color:var(--ink);font-size:14px;word-break:break-word}
+footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:28px 4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="nav" role="banner">
+    <button class="logo" id="home" aria-label="polish home">
+      <span class="mark" aria-hidden="true"><span class="c"></span><span class="s"></span></span>
+      <span class="w">eitan shay</span>
+    </button>
+    <span class="model">ES-07</span>
+    <span class="sp"></span>
+    <nav class="navlinks" aria-label="Sections">
+      <button class="pill" data-nav="enhance" aria-current="page">enhance</button>
+      <button class="pill" data-nav="library">library</button>
+    </nav>
+    <button class="ibtn" id="open-settings" aria-label="Settings" title="Settings"><svg class="i" viewBox="0 0 24 24"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg></button>
+  </header>
+
+  <!-- START -->
+  <main id="v-start" class="stack">
+    <section class="panel stack" style="gap:28px">
+      <div class="stack" style="gap:18px">
+        <span class="label">ES-07 · photo tool</span>
+        <h1 class="display">shot like a pro.</h1>
+        <p class="lead">Pick a photo. Polish reads what it is, writes the shot brief a magazine photographer would follow, and rebuilds the photo around the same subject.</p>
+      </div>
+      <div class="drop stripe" id="drop">
+        <span class="label">drop a photo here</span>
+        <button class="btn primary lg" id="choose"><svg class="i" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Choose a photo</button>
+        <span class="small">From your photo library or camera roll. JPEG, PNG, WebP.</span>
+      </div>
+      <div class="stack" style="gap:10px">
+        <span class="label">how far to go</span>
+        <div class="tabs" id="int-start" role="group" aria-label="Intensity" style="align-self:flex-start"></div>
+        <span class="small" id="int-note"></span>
+      </div>
+      <div class="stack" style="gap:10px">
+        <span class="label">style</span>
+        <div class="row" id="presets-start" role="group" aria-label="Style"></div>
+        <span class="small" id="preset-note"></span>
+      </div>
+    </section>
+    <section class="grid steps" aria-label="How it works">
+      <div class="step"><b>01</b><span class="h3">Read</span><span class="small">A Gemini text model looks at the photo and names what kind it is: portrait, food, car, place and so on.</span></div>
+      <div class="step"><b>02</b><span class="h3">Brief</span><span class="small">It writes the full shot brief for that kind: set, lighting, lens, grade and retouch. You can read it and edit it.</span></div>
+      <div class="step"><b>03</b><span class="h3">Regenerate</span><span class="small">A Gemini image model makes a new photograph from that brief, with the subject's identity locked.</span></div>
+    </section>
+  </main>
+
+  <!-- WORK -->
+  <main id="v-work" hidden>
+    <div class="grid work">
+      <section class="stage" id="stage" aria-label="Photo">
+        <div class="stage-top">
+          <div class="tabs" role="tablist" aria-label="Compare" id="modes">
+            <button role="tab" data-mode="slide" aria-selected="true">slide</button>
+            <button role="tab" data-mode="after" aria-selected="false">after</button>
+            <button role="tab" data-mode="before" aria-selected="false">before</button>
+          </div>
+          <span class="label" id="elapsed"></span>
+        </div>
+        <div class="cmp" id="cmp" tabindex="0" role="slider" aria-label="Before and after" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <img id="img-before" alt="Original photo">
+          <img id="img-after" class="after" alt="Enhanced photo" hidden>
+          <span class="tagl l" id="tag-l">before</span>
+          <span class="tagl r" id="tag-r" hidden>after</span>
+          <div class="handle" id="handle" hidden><div class="knob"><svg class="i" viewBox="0 0 24 24"><polyline points="9 6 3 12 9 18"/><polyline points="15 6 21 12 15 18"/></svg></div></div>
+        </div>
+        <div class="progress" id="progress" hidden><i></i></div>
+      </section>
+
+      <aside class="stack" aria-label="Brief">
+        <div class="raised stack" style="gap:14px">
+          <div class="row" style="justify-content:space-between">
+            <span class="badge signal" id="cat-badge" hidden><i></i><span id="cat-text"></span></span>
+            <span class="label" id="subject"></span>
+          </div>
+          <div class="status" id="status" aria-live="polite"><ul>
+            <li data-s="read"><span class="d"></span>read the photo</li>
+            <li data-s="brief"><span class="d"></span>write the brief</li>
+            <li data-s="make"><span class="d"></span>regenerate</li>
+          </ul></div>
+          <div class="field">
+            <label class="label" for="prompt">prompt</label>
+            <textarea id="prompt" rows="9" placeholder="The brief appears here once the photo is read."></textarea>
+            <span class="hint">Edit it, then regenerate. A lock on the subject's identity is always added.</span>
+          </div>
+          <div class="stack" style="gap:8px">
+            <span class="label">how far to go</span>
+            <div class="tabs" id="int-work" role="group" aria-label="Intensity" style="align-self:flex-start"></div>
+          </div>
+          <div class="stack" style="gap:8px">
+            <span class="label">style</span>
+            <div class="row" id="presets-work" role="group" aria-label="Style"></div>
+          </div>
+        </div>
+        <div class="errbox" id="errbox" hidden>
+          <span class="badge error"><i></i>error</span>
+          <p id="errtext"></p>
+          <div class="row"><button class="btn secondary sm" id="retry">Try again</button><button class="btn ghost sm" id="err-settings">Settings</button></div>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="save" disabled><svg class="i" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save</button>
+          <button class="btn ink" id="regen" disabled><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Regenerate</button>
+          <button class="btn ghost" id="cancel" hidden>Cancel</button>
+          <button class="btn ghost" id="new">New photo</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- LIBRARY -->
+  <main id="v-lib" hidden class="stack">
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between">
+        <h2 class="h2">Library</h2>
+        <span class="label" id="lib-count"></span>
+      </div>
+      <div class="grid lib" id="lib-grid"></div>
+      <div class="drop stripe" id="lib-empty" hidden><span class="label">nothing here yet</span><span class="small">Enhanced photos are kept on this device, last 24.</span></div>
+    </section>
+  </main>
+
+  <footer>
+    <span class="label">ES-07 → polish · soft to use. sharp underneath.</span>
+    <span class="label" id="models-line"></span>
+  </footer>
+</div>
+
+<input type="file" id="file" accept="image/*,.heic,.heif" hidden>
+
+<dialog id="settings" aria-labelledby="set-title">
+  <div class="dlg">
+    <div class="row" style="justify-content:space-between"><h3 class="h3" id="set-title">Settings</h3><button class="ibtn" id="close-settings" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="field">
+      <label class="label" for="key">gemini api key</label>
+      <div class="row" style="flex-wrap:nowrap"><input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key"><button class="btn secondary" id="showkey" type="button" style="height:44px">Show</button></div>
+      <span class="hint">Saved on this device only. Photos go from here straight to Google. Get a key at aistudio.google.com.</span>
+    </div>
+    <div class="field"><label class="label" for="m-text">text model (reads and writes the brief)</label><select id="m-text"></select></div>
+    <div class="field"><label class="label" for="m-image">image model (regenerates)</label><select id="m-image"></select></div>
+    <div class="field"><label class="label" for="m-custom">custom model ids (optional)</label><input id="m-custom" placeholder="text-model-id, image-model-id" spellcheck="false" autocapitalize="off"><span class="hint">Override the two selections above, comma separated.</span></div>
+    <div class="row" style="justify-content:space-between">
+      <button class="btn ghost" id="check-key">Check key</button>
+      <div class="row"><button class="btn ghost" id="clear-data">Clear library</button><button class="btn primary" id="save-settings">Done</button></div>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span class="d"></span><span id="toast-msg"></span></div>
+
+<script>
+(() => {
+'use strict';
+/* ---------- config ---------- */
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+const TEXT_MODELS = ['gemini-3.8-flash','gemini-3.6-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
+const IMAGE_MODELS = ['gemini-3.1-flash-image','gemini-3-pro-image','gemini-3.1-flash-lite-image','gemini-2.5-flash-image'];
+const MAX_SIDE = 2048;
+const HEIC_LIB = 'https://cdn.jsdelivr.net/npm/heic-to@1.6.5/dist/heic-to.js';
+const isHeicFile = f => /^image\/hei[cf]/i.test(f.type) || /\.(heic|heif)$/i.test(f.name || '');
+let heicLib = null;
+const LIB_MAX = 24;
+
+const PRESETS = {
+  natural:   {label:'natural',   note:'True-to-life color and honest tones, expertly lit.', clause:'True-to-life color, gentle contrast, honest skin and material tones, expertly lit and finished.'},
+  editorial: {label:'editorial', note:'Magazine finish. Crisp micro-contrast, refined color, clean retouching.', clause:'Magazine finish: crisp micro-contrast, refined clean color, controlled highlights and subtle polished retouching.'},
+  cinematic: {label:'cinematic', note:'Film-still grade. Warm highlights, cooler shadows, soft roll-off.', clause:'Cinematic grade: slightly teal-leaning shadows, warm highlights, soft contrast roll-off and a touch of atmospheric depth.'},
+  bright:    {label:'bright',    note:'Light and airy. Lifted exposure, clean whites, soft color.', clause:'Bright and airy: lifted exposure, soft luminous light, clean whites, gentle contrast and slightly pastel-leaning color.'},
+  film:      {label:'film',      note:'Analog look. Fine grain, faded blacks, warm midtones.', clause:'Analog film look: fine grain, gentle halation, rich but slightly faded color and warm midtones.'}
+};
+
+const PLAYBOOK = `
+portrait (single person, profile picture, headshot): soft large key light from slightly above and to one side, gentle fill, clean catchlights in the eyes, even natural skin tone with realistic texture and only light blemish cleanup, subtle background separation and shallow depth of field like an 85mm lens, tidy background, flattering exposure. The face, expression, hair, age and likeness must stay exactly the same.
+group (several people): even soft light across all faces, balanced exposure, consistent skin tones, clean background, everyone sharp, no changes to anyone's face or position.
+food: soft directional window light, appetizing saturated but natural color, glossy highlights where food is moist, gentle steam or sheen only if already present, shallow depth of field on the hero item, clean surface, minor crumbs and distractions tidied, rich contrast.
+car (vehicles, motorcycles): crisp polished paint with clean controlled reflections, golden-hour or large softbox look, deep saturated color, sharp wheels and badges, clean uncluttered surroundings, subtle contrast on bodywork. Make, model, color, plate and design must not change.
+landscape (nature, travel, outdoor scenery): balanced exposure with recovered highlights and lifted shadows, golden or soft light, clear deep sky, haze reduced, natural vivid color, crisp detail, pleasing tonal depth.
+architecture (interior, real estate, buildings): bright even light, true white balance, straightened verticals, clean tidy rooms, window highlights controlled, wide-angle real-estate quality.
+product (objects, gear, still life): clean softbox lighting, accurate color, crisp edges, subtle reflections, neutral uncluttered background, high detail on materials.
+pet (animals): bright catchlights, sharp fur detail, soft background separation, warm natural light, true coat color.
+street (candid, city, events, night): controlled contrast, clean highlights, rich color, reduced noise, cinematic but natural light, keep the moment authentic.
+other: general professional polish: balanced exposure, accurate color, clean light, reduced noise, crisp detail.`;
+
+const INTENSITY = {
+  refine:   {label:'refine',   note:'Light touch. Same scene, better light and color.'},
+  studio:   {label:'studio',   note:'Full relight, new backdrop, premium retouch. Same composition.'},
+  magazine: {label:'magazine', note:'Full reimagining for a cover shoot. Only the subject stays.'}
+};
+const PLAYBOOK_STUDIO = `
+portrait (single person, profile picture, headshot): cover shoot for a high-end fashion or lifestyle magazine. Seamless paper or textured studio backdrop in a color that flatters the skin and clothing, large beauty dish or octabox key slightly above and off axis, silver reflector fill under the chin, strip light rim to separate hair and shoulders, controlled specular highlights, crisp catchlights. 85 to 105mm lens at f/2 to f/4, camera at eye level. Premium retouching: even skin with visible natural texture and no plastic smoothing, refined hair, crisp polished wardrobe, a deliberate color palette.
+group (several people): editorial group portrait in a studio or on a designed set, large soft main light plus a hair light, clean seamless or textured backdrop, everyone flattered and sharp, coordinated palette, wardrobe pressed and polished.
+food: cookbook cover or Bon Appetit grade food photography. Plate styled on a premium surface chosen to complement the dish (aged wood, marble, ceramic, linen), one large softbox from back left with a white bounce card, steam or glisten where it belongs, fresh garnish, intentional props like cutlery and a napkin in soft focus, 90mm lens at f/4 with shallow depth of field, rich appetizing color.
+car (cars, motorcycles): automotive magazine cover shoot. Dark or white infinity studio, or wet asphalt at blue hour. Huge overhead softbox and long strip lights tracing the body lines, deep polished paint with controlled reflections, glossy floor reflection, rim light on the shoulders, wheels clean and aligned, 35 to 70mm lens at a low camera height.
+landscape (nature, travel, outdoor scenery): National Geographic or travel magazine hero shot. Golden hour or blue hour light, dramatic but natural sky, luminous layered depth, recovered highlights, rich color grade, crisp foreground detail, strong leading lines.
+architecture (interior, real estate, buildings): Architectural Digest feature. Twilight or bright airy daylight, perfectly straight verticals, 24mm tilt-shift look, styled interior with layered warm practical lights, controlled window and glass reflections, clean uncluttered surfaces.
+product (objects, gear, still life): premium commercial hero shot. Seamless sweep, large softbox with gradient strips for edge highlights, subtle floor reflection, razor sharp macro detail, accurate materials and branding.
+pet (animals): studio pet portrait for a magazine. Seamless backdrop in a complementary color, soft key with a rim light for fur detail, bright catchlights, 85mm lens, true coat color.
+street (candid, city, events, night): editorial photo story. Cinematic controlled color, dramatic but believable light, refined contrast, strong composition, authentic moment.
+other: high-end commercial shoot. Choose the most flattering studio or location setup for the subject, with a full lighting plan, lens choice, backdrop and grade.`;
+const IDENTITY = 'Identity lock: the main subject must stay unmistakably the same: same person or people (face, features, skin tone, hair, age, body proportions, expression), same animal, same dish and ingredients, same vehicle (make, model, color, trim), same product (shape, materials, branding, text). Everything else may be reimagined. Keep the output aspect ratio the same as the attached photo. Photorealistic photograph, not an illustration. No added text, borders or watermarks. Output one image.';
+const GUARD_REFINE = 'Hard constraints: keep the exact same subject(s), identity, faces, expressions, pose, objects, logos, text, composition, framing and aspect ratio. Do not add or remove people or objects. Do not add text, borders or watermarks. Output one photographic image.';
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+let toastTimer;
+function toast(msg, tone) {
+  const t = $('#toast'); $('#toast-msg').textContent = msg;
+  t.className = 'toast show' + (tone ? ' ' + tone : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3400);
+}
+function blobToB64(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+}
+function b64ToBlob(b64, type) {
+  const bin = atob(b64), len = bin.length, u8 = new Uint8Array(len);
+  for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: type || 'image/png' });
+}
+function getSettings() {
+  const custom = store.get('es07.custom', '').split(',').map(s => s.trim());
+  return {
+    key: store.get('es07.key', ''),
+    text: custom[0] || store.get('es07.text', TEXT_MODELS[0]),
+    image: custom[1] || store.get('es07.image', IMAGE_MODELS[0])
+  };
+}
+
+/* ---------- history (IndexedDB) ---------- */
+const db = {
+  _p: null,
+  open() {
+    if (this._p) return this._p;
+    this._p = new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error('no idb'));
+      const r = indexedDB.open('polish-es07', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return this._p;
+  },
+  async tx(mode, fn) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('items', mode), s = t.objectStore('items'); const q = fn(s); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); },
+  async all() { try { const a = await this.tx('readonly', s => s.getAll()); return (a || []).sort((x, y) => y.ts - x.ts); } catch { return []; } },
+  async put(item) { try { await this.tx('readwrite', s => s.put(item)); const a = await this.all(); for (const old of a.slice(LIB_MAX)) await this.tx('readwrite', s => s.delete(old.id)); } catch {} },
+  async del(id) { try { await this.tx('readwrite', s => s.delete(id)); } catch {} },
+  async clear() { try { await this.tx('readwrite', s => s.clear()); } catch {} }
+};
+
+/* ---------- Gemini ---------- */
+class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
+async function gemini(model, body, signal) {
+  const { key } = getSettings();
+  if (!key) throw new ApiError('Add your Gemini API key in Settings first.', 0);
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res;
+    try {
+      res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST', signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      throw new ApiError('Could not reach Gemini. Check your connection.', 0);
+    }
+    if (res.ok) return res.json();
+    let msg = '';
+    try { const j = await res.json(); msg = j.error && j.error.message || ''; } catch {}
+    lastErr = new ApiError(`${res.status}: ${msg || res.statusText}`, res.status);
+    if (res.status === 429 && /limit:\s*0|free_tier|current quota/i.test(msg)) {
+      lastErr = new ApiError(`${model} has no free tier on your Google project. Turn on billing at aistudio.google.com (Settings, Plan), then try again. Or pick a different image model in Settings. Image models cost about 3 to 15 cents per photo.`, 429);
+      lastErr.quota = true; break;
+    }
+    if ([429, 500, 502, 503].includes(res.status) && attempt < 2) { await sleep(1500 * (attempt + 1)); continue; }
+    break;
+  }
+  throw lastErr;
+}
+function partsOf(json) { return (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []; }
+
+async function analyze(photo, signal) {
+  const { text } = getSettings();
+  const lvl = S.intensity;
+  const cats = '"portrait","group","food","car","landscape","architecture","product","pet","street","other"';
+  const instruction = lvl === 'refine' ? `You are a senior photo retoucher and art director. Look at the attached photo and decide what kind of photo it is, then write the brief an image-editing model will follow to re-render this exact photo as if a professional photographer had shot it.
+
+Genre guidance, use the matching entry:
+${PLAYBOOK}
+
+Return ONLY JSON, no code fences, with exactly these keys:
+{"category": one of ${cats},
+ "subject": a short noun phrase naming the main subject (max 8 words),
+ "issues": array of up to 4 short strings naming what is weak in this photo (lighting, color, noise, clutter, framing and so on),
+ "prompt": 70 to 140 words, imperative, concrete photographic language (light direction and quality, color temperature, contrast, depth of field, sharpness, background cleanliness, retouch level). Fix the listed issues. Name the subject in the prompt. Do not mention the style preset. Do not use bullet points.}
+
+Rules for "prompt": it must only improve lighting, exposure, white balance, color, sharpness, noise, depth of field, background tidiness and overall polish. It must not change who or what is in the photo, their pose, the composition or the framing.`
+  : `You are the creative director of a high-end magazine. Look at the attached photo and decide what kind of photo it is. Then write the SHOT BRIEF an image model will follow to create a brand-new, flagship quality photograph of the same main subject, as if an elite photographer had shot it in a professional studio or on the ideal set for a magazine cover. This is a full reimagining of the picture, not a filter and not a light touch-up: rebuild the whole image around the subject.
+
+Intensity: ${lvl === 'studio'
+  ? 'STUDIO. Rebuild the lighting, background and retouching completely, with a clean studio or equivalent set. Keep the original pose, composition, camera angle and framing.'
+  : 'MAGAZINE. Reimagine freely. You may change the set, background, camera angle, lens, crop, styling, wardrobe polish, props and mood to reach a cover-worthy result. Only the main subject\'s identity is locked.'}
+
+Genre guidance, use the matching entry and push it further:
+${PLAYBOOK_STUDIO}
+
+Return ONLY JSON, no code fences, with exactly these keys:
+{"category": one of ${cats},
+ "subject": a short noun phrase naming the main subject (max 8 words),
+ "issues": array of up to 4 short strings naming what is weak in the original photo,
+ "prompt": 140 to 210 words, imperative, concrete, written like a call sheet. Open by naming the subject. Then specify in prose: the set and backdrop (specific materials and colors), the full lighting plan (key, fill, rim or kicker, modifiers, direction, quality, contrast ratio), camera and lens (focal length, aperture, camera height), color palette and grade, styling and retouching level, and the mood. Make bold, specific choices. Do not mention any style preset. Do not use bullet points. Do not restate identity constraints, they are added automatically.}`;
+  const json = await gemini(text, {
+    contents: [{ role: 'user', parts: [{ text: instruction }, { inlineData: { mimeType: 'image/jpeg', data: photo.b64 } }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: lvl === 'refine' ? 0.4 : 0.9 }
+  }, signal);
+  const raw = partsOf(json).map(p => p.text || '').join('').trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  let out;
+  try { out = JSON.parse(raw); } catch {
+    const m = raw.match(/\{[\s\S]*\}/); try { out = m && JSON.parse(m[0]); } catch {}
+  }
+  if (!out || typeof out.prompt !== 'string' || out.prompt.length < 20) {
+    out = { category: 'other', subject: 'photo', issues: [], prompt: lvl === 'refine' ? 'Re-render this photo as a professional photographer would have shot it: balanced exposure, accurate color, clean soft light, reduced noise, crisp detail and a tidy background, keeping everything in the scene exactly as it is.' : 'Create a magazine cover quality photograph of the main subject on a seamless studio backdrop in a complementary color. Large softbox key from camera left, soft fill, a strip light rim for separation, 85mm lens at f/2.8, camera at the subject eye level, rich controlled color grade, premium retouching with natural texture, polished and confident mood.' };
+  }
+  if (!['portrait','group','food','car','landscape','architecture','product','pet','street','other'].includes(out.category)) out.category = 'other';
+  return out;
+}
+
+async function regenerate(photo, promptText, presetKey, signal) {
+  const { image } = getSettings();
+  const style = `Style direction: ${PRESETS[presetKey].clause}`;
+  const full = S.intensity === 'refine'
+    ? `${promptText.trim()}\n\n${style}\n\n${GUARD_REFINE}`
+    : `Use the attached photo as the reference for the main subject. Create a brand-new professional photograph of that exact subject, shot as described below.\n\n${promptText.trim()}\n\n${style}\n\n${IDENTITY}`;
+  const json = await gemini(image, {
+    contents: [{ role: 'user', parts: [{ text: full }, { inlineData: { mimeType: 'image/jpeg', data: photo.b64 } }] }],
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+  }, signal);
+  const parts = partsOf(json);
+  const img = parts.find(p => p.inlineData || p.inline_data);
+  if (!img) {
+    const why = parts.map(p => p.text).filter(Boolean).join(' ').slice(0, 280)
+      || (json.promptFeedback && json.promptFeedback.blockReason && 'Blocked: ' + json.promptFeedback.blockReason)
+      || (json.candidates && json.candidates[0] && json.candidates[0].finishReason) || 'no image returned';
+    throw new ApiError('Gemini returned no image. ' + why, 0);
+  }
+  const d = img.inlineData || img.inline_data;
+  return b64ToBlob(d.data, d.mimeType || d.mime_type);
+}
+
+/* ---------- photo prep ---------- */
+async function prepare(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch {
+    if (!isHeicFile(file)) throw new ApiError('This browser could not read that image. Try a JPEG or PNG.', 0);
+    toast('Converting HEIC. First time takes a few seconds.');
+    try {
+      heicLib = heicLib || await import(HEIC_LIB);
+      bmp = await heicLib.heicTo({ blob: file, type: 'bitmap' });
+    } catch (e) {
+      heicLib = null;
+      throw new ApiError('Could not convert that HEIC photo. Check your connection, or export it as JPEG from Photos.', 0);
+    }
+  }
+  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+  return { blob, b64: await blobToB64(blob), w, h, url: URL.createObjectURL(blob) };
+}
+
+/* ---------- state + view ---------- */
+const S = { photo: null, analysis: null, preset: store.get('es07.preset', 'editorial'), intensity: store.get('es07.intensity', 'magazine'), resultBlob: null, resultUrl: null, busy: false, ctl: null, mode: 'slide', pos: 50, lastRun: null, t0: 0, tick: null };
+if (!PRESETS[S.preset]) S.preset = 'editorial';
+if (!INTENSITY[S.intensity]) S.intensity = 'magazine';
+
+function show(view) {
+  for (const v of ['start', 'work', 'lib']) $('#v-' + v).hidden = v !== view;
+  $$('[data-nav]').forEach(b => b.setAttribute('aria-current', (b.dataset.nav === 'library') === (view === 'lib') ? 'page' : 'false'));
+  if (view === 'lib') renderLib();
+  window.scrollTo({ top: 0 });
+}
+function renderPresets() {
+  for (const id of ['#presets-start', '#presets-work']) {
+    const box = $(id); box.textContent = '';
+    for (const [k, p] of Object.entries(PRESETS)) {
+      const b = document.createElement('button'); b.className = 'tag'; b.type = 'button'; b.textContent = p.label;
+      b.setAttribute('aria-pressed', String(S.preset === k)); b.dataset.k = k; box.appendChild(b);
+    }
+  }
+  $('#preset-note').textContent = PRESETS[S.preset].note;
+}
+function renderIntensity() {
+  for (const id of ['#int-start', '#int-work']) {
+    const box = $(id); box.textContent = '';
+    for (const [k, v] of Object.entries(INTENSITY)) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = v.label; b.dataset.i = k;
+      b.setAttribute('aria-pressed', String(S.intensity === k)); b.style.cssText = '';
+      box.appendChild(b);
+    }
+  }
+  $('#int-note').textContent = INTENSITY[S.intensity].note;
+}
+function setIntensity(k) {
+  if (k === S.intensity) return;
+  S.intensity = k; store.set('es07.intensity', k); renderIntensity();
+  if (S.photo && !S.busy) retryFull();
+}
+function setPreset(k) {
+  S.preset = k; store.set('es07.preset', k); renderPresets();
+  if (S.photo && S.analysis && !S.busy) regen();
+}
+function setSteps(state) { // state: read|brief|make|done|idle
+  const order = ['read', 'brief', 'make'];
+  $$('#status li').forEach(li => {
+    const i = order.indexOf(li.dataset.s), cur = order.indexOf(state);
+    li.className = state === 'done' || (cur > -1 && i < cur) ? 'done' : (i === cur ? 'on' : '');
+  });
+}
+function setBusy(b, label) {
+  S.busy = b;
+  $('#stage').classList.toggle('busy', b);
+  $('#progress').hidden = !b;
+  $('#cancel').hidden = !b;
+  $('#save').disabled = b || !S.resultBlob;
+  $('#regen').disabled = b || !S.analysis;
+  $('#prompt').disabled = b;
+  $('#new').disabled = false;
+  if (b) { S.t0 = Date.now(); clearInterval(S.tick); S.tick = setInterval(() => { $('#elapsed').textContent = ((Date.now() - S.t0) / 1000).toFixed(0) + 's · ' + (label || ''); }, 500); $('#elapsed').textContent = '0s · ' + (label || ''); }
+  else { clearInterval(S.tick); }
+}
+function updateCompare() {
+  const hasAfter = !!S.resultUrl;
+  const after = $('#img-after');
+  after.hidden = !hasAfter;
+  if (hasAfter && after.src !== S.resultUrl) after.src = S.resultUrl;
+  let pos = S.pos, handle = hasAfter && S.mode === 'slide';
+  if (hasAfter && S.mode === 'after') pos = 0;
+  if (hasAfter && S.mode === 'before') pos = 100;
+  if (!hasAfter) pos = 100;
+  $('#cmp').style.setProperty('--pos', pos + '%');
+  $('#handle').hidden = !handle;
+  $('#tag-l').hidden = !hasAfter ? false : (S.mode === 'after');
+  $('#tag-r').hidden = !hasAfter || S.mode === 'before';
+  $('#tag-l').textContent = 'before';
+  $('#cmp').setAttribute('aria-valuenow', String(Math.round(pos)));
+  $$('#modes button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === S.mode)));
+  $('#modes').hidden = !hasAfter;
+}
+function sizeStage() {
+  if (!S.photo) return;
+  const cmp = $('#cmp');
+  cmp.style.aspectRatio = S.photo.w + ' / ' + S.photo.h;
+  // keep within viewport height while preserving ratio
+  const maxH = Math.min(window.innerHeight * 0.72, 900);
+  const wMax = Math.min(cmp.parentElement.clientWidth - 24, maxH * (S.photo.w / S.photo.h));
+  cmp.style.width = wMax + 'px';
+}
+function showError(e) {
+  $('#errbox').hidden = false; $('#errtext').textContent = e.message || String(e);
+  $('#err-settings').hidden = !(e.status === 0 && /key/i.test(e.message || '')) && ![400, 403, 401, 429].includes(e.status);
+}
+function clearError() { $('#errbox').hidden = true; }
+
+/* ---------- flow ---------- */
+async function startFlow(file) {
+  if (!file || !(file.type.startsWith('image/') || isHeicFile(file))) { toast('Choose an image file.', 'error'); return; }
+  if (!getSettings().key) { openSettings(); toast('Add your Gemini API key first.'); S.pending = file; return; }
+  resetResult();
+  try { S.photo = await prepare(file); } catch (e) { toast(e.message, 'error'); return; }
+  $('#img-before').src = S.photo.url;
+  $('#img-after').hidden = true;
+  $('#prompt').value = ''; $('#cat-badge').hidden = true; $('#subject').textContent = '';
+  S.analysis = null; clearError(); show('work'); requestAnimationFrame(sizeStage); updateCompare();
+  S.ctl = new AbortController(); setBusy(true, 'reading'); setSteps('read');
+  try {
+    S.analysis = await analyze(S.photo, S.ctl.signal);
+    $('#prompt').value = S.analysis.prompt;
+    $('#cat-text').textContent = S.analysis.category; $('#cat-badge').hidden = false;
+    $('#subject').textContent = S.analysis.subject;
+    setSteps('brief'); await sleep(250);
+    await runRegen();
+  } catch (e) { fail(e); }
+}
+async function runRegen() {
+  setSteps('make'); setBusy(true, 'regenerating');
+  S.ctl = new AbortController();
+  const promptText = $('#prompt').value.trim() || S.analysis.prompt;
+  const t0 = Date.now();
+  const blob = await regenerate(S.photo, promptText, S.preset, S.ctl.signal);
+  if (S.resultUrl) URL.revokeObjectURL(S.resultUrl);
+  S.resultBlob = blob; S.resultUrl = URL.createObjectURL(blob); S.mode = 'slide'; S.pos = 50;
+  S.lastRun = Date.now() - t0;
+  setSteps('done'); setBusy(false);
+  $('#elapsed').textContent = (S.lastRun / 1000).toFixed(1) + 's · done';
+  updateCompare(); clearError();
+  db.put({ id: 'p' + Date.now(), ts: Date.now(), category: S.analysis.category, subject: S.analysis.subject, preset: S.preset, intensity: S.intensity, prompt: promptText, orig: S.photo.blob, result: blob });
+}
+async function regen() {
+  if (!S.photo || !S.analysis || S.busy) return;
+  clearError();
+  try { await runRegen(); } catch (e) { fail(e); }
+}
+function fail(e) {
+  setBusy(false);
+  if (e.name === 'AbortError') { toast('Cancelled.'); setSteps(S.resultBlob ? 'done' : 'idle'); return; }
+  setSteps('idle'); showError(e);
+  $('#save').disabled = !S.resultBlob; $('#regen').disabled = !S.analysis;
+}
+function resetResult() {
+  if (S.resultUrl) URL.revokeObjectURL(S.resultUrl);
+  if (S.photo) URL.revokeObjectURL(S.photo.url);
+  S.resultBlob = null; S.resultUrl = null; S.photo = null; S.analysis = null; S.mode = 'slide'; S.pos = 50;
+}
+
+async function save() {
+  if (!S.resultBlob) return;
+  const ext = (S.resultBlob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  const name = `polish-es07-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.${ext}`;
+  const file = new File([S.resultBlob], name, { type: S.resultBlob.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) { await navigator.share({ files: [file] }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = S.resultUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  toast('Saved ' + name, 'ok');
+}
+
+/* ---------- compare slider ---------- */
+(function () {
+  const cmp = $('#cmp'); let drag = false;
+  const set = x => { const r = cmp.getBoundingClientRect(); S.pos = Math.max(0, Math.min(100, ((x - r.left) / r.width) * 100)); updateCompare(); };
+  cmp.addEventListener('pointerdown', e => { if (!S.resultUrl || S.mode !== 'slide') return; drag = true; cmp.setPointerCapture(e.pointerId); set(e.clientX); });
+  cmp.addEventListener('pointermove', e => { if (drag) set(e.clientX); });
+  const end = () => { drag = false; };
+  cmp.addEventListener('pointerup', end); cmp.addEventListener('pointercancel', end);
+  cmp.addEventListener('keydown', e => {
+    if (!S.resultUrl) return;
+    if (e.key === 'ArrowLeft') { S.pos = Math.max(0, S.pos - 5); updateCompare(); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { S.pos = Math.min(100, S.pos + 5); updateCompare(); e.preventDefault(); }
+  });
+})();
+
+/* ---------- library ---------- */
+const libUrls = [];
+async function renderLib() {
+  libUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+  const items = await db.all(); const g = $('#lib-grid'); g.textContent = '';
+  $('#lib-empty').hidden = items.length > 0; $('#lib-count').textContent = items.length ? items.length + ' saved' : '';
+  for (const it of items) {
+    const u = URL.createObjectURL(it.result); libUrls.push(u);
+    const b = document.createElement('button'); b.className = 'tile'; b.type = 'button';
+    const im = document.createElement('img'); im.src = u; im.alt = it.subject || 'Enhanced photo'; im.loading = 'lazy';
+    const m = document.createElement('div'); m.className = 'meta';
+    const r1 = document.createElement('div'); r1.className = 'row';
+    const bd = document.createElement('span'); bd.className = 'badge signal'; const bi = document.createElement('i'); bd.appendChild(bi); bd.appendChild(document.createTextNode(it.category));
+    const pl = document.createElement('span'); pl.className = 'label'; pl.textContent = it.preset;
+    r1.append(bd, pl);
+    const sm = document.createElement('span'); sm.className = 'small'; sm.textContent = (it.subject || '') + ' · ' + new Date(it.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    m.append(r1, sm); b.append(im, m);
+    b.addEventListener('click', () => openItem(it));
+    g.appendChild(b);
+  }
+}
+async function openItem(it) {
+  resetResult();
+  const url = URL.createObjectURL(it.orig);
+  const bmp = await createImageBitmap(it.orig);
+  S.photo = { blob: it.orig, b64: await blobToB64(it.orig), w: bmp.width, h: bmp.height, url };
+  S.analysis = { category: it.category, subject: it.subject, prompt: it.prompt };
+  S.preset = it.preset in PRESETS ? it.preset : S.preset; renderPresets();
+  if (it.intensity in INTENSITY) { S.intensity = it.intensity; renderIntensity(); }
+  S.resultBlob = it.result; S.resultUrl = URL.createObjectURL(it.result);
+  $('#img-before').src = url; $('#prompt').value = it.prompt;
+  $('#cat-text').textContent = it.category; $('#cat-badge').hidden = false; $('#subject').textContent = it.subject || '';
+  clearError(); setSteps('done'); setBusy(false); $('#elapsed').textContent = 'from library';
+  show('work'); requestAnimationFrame(sizeStage); updateCompare();
+}
+
+/* ---------- settings ---------- */
+function fillSelect(sel, list, cur) {
+  sel.textContent = '';
+  for (const m of list) { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); }
+  sel.value = list.includes(cur) ? cur : list[0];
+}
+function openSettings() {
+  const s = { key: store.get('es07.key', ''), text: store.get('es07.text', TEXT_MODELS[0]), image: store.get('es07.image', IMAGE_MODELS[0]) };
+  $('#key').value = s.key; $('#key').type = 'password'; $('#showkey').textContent = 'Show';
+  fillSelect($('#m-text'), TEXT_MODELS, s.text); fillSelect($('#m-image'), IMAGE_MODELS, s.image);
+  $('#m-custom').value = store.get('es07.custom', '');
+  const d = $('#settings'); if (!d.open) d.showModal();
+}
+function refreshModelsLine() { const s = getSettings(); $('#models-line').textContent = s.key ? s.text + ' · ' + s.image : 'no key set'; }
+function persistSettings() {
+  store.set('es07.key', $('#key').value.trim());
+  store.set('es07.text', $('#m-text').value); store.set('es07.image', $('#m-image').value);
+  store.set('es07.custom', $('#m-custom').value.trim());
+  refreshModelsLine();
+}
+$('#open-settings').onclick = openSettings; $('#err-settings').onclick = openSettings;
+$('#close-settings').onclick = () => { persistSettings(); $('#settings').close(); };
+$('#save-settings').onclick = () => { persistSettings(); $('#settings').close(); if (S.pending && getSettings().key) { const f = S.pending; S.pending = null; startFlow(f); } };
+$('#settings').addEventListener('click', e => { if (e.target === $('#settings')) { persistSettings(); $('#settings').close(); } });
+$('#showkey').onclick = () => { const k = $('#key'); k.type = k.type === 'password' ? 'text' : 'password'; $('#showkey').textContent = k.type === 'password' ? 'Show' : 'Hide'; };
+$('#clear-data').onclick = async () => { await db.clear(); toast('Library cleared.', 'ok'); };
+$('#check-key').onclick = async () => {
+  persistSettings(); const k = getSettings().key; if (!k) { toast('Paste a key first.', 'error'); return; }
+  try { const r = await fetch(`${API}/models?pageSize=1`, { headers: { 'x-goog-api-key': k } }); if (r.ok) toast('Key works.', 'ok'); else { const j = await r.json().catch(() => ({})); toast((j.error && j.error.message || 'Key rejected (' + r.status + ')').slice(0, 120), 'error'); } }
+  catch { toast('Could not reach Gemini.', 'error'); }
+};
+
+/* ---------- wiring ---------- */
+$('#choose').onclick = () => $('#file').click();
+$('#file').onchange = e => { const f = e.target.files[0]; e.target.value = ''; startFlow(f); };
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => startFlow(e.dataTransfer.files[0]));
+document.addEventListener('click', e => { const b = e.target.closest('#presets-start button, #presets-work button'); if (b) setPreset(b.dataset.k); });
+$('#modes').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.mode = b.dataset.mode; updateCompare(); } });
+$('#save').onclick = save; $('#regen').onclick = regen; $('#retry').onclick = () => { S.analysis ? regen() : (S.photo && retryFull()); };
+async function retryFull() { clearError(); S.ctl = new AbortController(); setBusy(true, 'reading'); setSteps('read'); try { S.analysis = await analyze(S.photo, S.ctl.signal); $('#prompt').value = S.analysis.prompt; $('#cat-text').textContent = S.analysis.category; $('#cat-badge').hidden = false; $('#subject').textContent = S.analysis.subject; await runRegen(); } catch (e) { fail(e); } }
+$('#cancel').onclick = () => S.ctl && S.ctl.abort();
+$('#new').onclick = () => { if (S.ctl && S.busy) S.ctl.abort(); setBusy(false); resetResult(); show('start'); };
+$('#home').onclick = () => { if (S.busy) return; show(S.photo ? 'work' : 'start'); };
+$$('[data-nav]').forEach(b => b.onclick = () => { if (b.dataset.nav === 'library') show('lib'); else show(S.photo ? 'work' : 'start'); });
+document.addEventListener('click', e => { const b = e.target.closest('#int-start button, #int-work button'); if (b) setIntensity(b.dataset.i); });
+window.addEventListener('resize', sizeStage);
+
+renderPresets(); renderIntensity(); refreshModelsLine();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+window.__polish = { S, startFlow }; // test hook
+})();
+</script>
+</body>
+</html>
