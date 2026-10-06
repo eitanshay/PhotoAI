@@ -339,7 +339,7 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-
 /* ---------- config ---------- */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 const TEXT_MODELS = ['gemini-3.8-flash','gemini-3.6-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
-const IMAGE_MODELS = ['gemini-3.1-flash-image','gemini-3-pro-image','gemini-3.1-flash-lite-image','gemini-2.5-flash-image'];
+const IMAGE_MODELS = ['gemini-nano-banana-2.1','gemini-3.1-flash-image','gemini-3-pro-image','gemini-3.1-flash-lite-image','gemini-2.5-flash-image'];
 const MAX_SIDE = 2048;
 const HEIC_LIB = 'https://cdn.jsdelivr.net/npm/heic-to@1.6.5/dist/heic-to.js';
 const isHeicFile = f => /^image\/hei[cf]/i.test(f.type) || /\.(heic|heif)$/i.test(f.name || '');
@@ -407,13 +407,14 @@ function b64ToBlob(b64, type) {
   for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
   return new Blob([u8], { type: type || 'image/png' });
 }
+if (store.get('es07.modelsv', '') !== '2') { store.set('es07.image', 'gemini-nano-banana-2.1'); store.set('es07.people', 'gemini-nano-banana-2.1'); store.set('es07.modelsv', '2'); }
 function getSettings() {
   const custom = store.get('es07.custom', '').split(',').map(s => s.trim());
   return {
     key: store.get('es07.key', ''),
     text: custom[0] || store.get('es07.text', TEXT_MODELS[0]),
     image: custom[1] || store.get('es07.image', IMAGE_MODELS[0]),
-    people: store.get('es07.people', 'gemini-3-pro-image'),
+    people: store.get('es07.people', IMAGE_MODELS[0]),
     face: store.get('es07.facecheck', '1')
   };
 }
@@ -868,7 +869,7 @@ function openSettings() {
   const s = { key: store.get('es07.key', ''), text: store.get('es07.text', TEXT_MODELS[0]), image: store.get('es07.image', IMAGE_MODELS[0]) };
   $('#key').value = s.key; $('#key').type = 'password'; $('#showkey').textContent = 'Show';
   fillSelect($('#m-text'), TEXT_MODELS, s.text); fillSelect($('#m-image'), IMAGE_MODELS, s.image);
-  fillSelect($('#m-people'), IMAGE_MODELS, store.get('es07.people', 'gemini-3-pro-image')); $('#m-face').value = store.get('es07.facecheck', '1');
+  fillSelect($('#m-people'), IMAGE_MODELS, store.get('es07.people', IMAGE_MODELS[0])); $('#m-face').value = store.get('es07.facecheck', '1');
   $('#m-custom').value = store.get('es07.custom', '');
   const d = $('#settings'); if (!d.open) d.showModal();
 }
