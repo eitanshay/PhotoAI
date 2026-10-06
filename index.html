@@ -216,6 +216,11 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-
         <span class="small" id="int-note"></span>
       </div>
       <div class="stack" style="gap:10px">
+        <span class="label">retouch people</span>
+        <div class="tabs" id="rt-start" role="group" aria-label="Retouch" style="align-self:flex-start"></div>
+        <span class="small" id="rt-note"></span>
+      </div>
+      <div class="stack" style="gap:10px">
         <span class="label">style</span>
         <div class="row" id="presets-start" role="group" aria-label="Style"></div>
         <span class="small" id="preset-note"></span>
@@ -270,6 +275,10 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-
           <div class="stack" style="gap:8px">
             <span class="label">how far to go</span>
             <div class="tabs" id="int-work" role="group" aria-label="Intensity" style="align-self:flex-start"></div>
+          </div>
+          <div class="stack" style="gap:8px" id="rt-work-box" hidden>
+            <span class="label">retouch people</span>
+            <div class="tabs" id="rt-work" role="group" aria-label="Retouch" style="align-self:flex-start"></div>
           </div>
           <div class="stack" style="gap:8px">
             <span class="label">style</span>
@@ -382,6 +391,11 @@ product (objects, gear, still life): premium commercial hero shot. Seamless swee
 pet (animals): studio pet portrait for a magazine. Seamless backdrop in a complementary color, soft key with a rim light for fur detail, bright catchlights, 85mm lens, true coat color.
 street (candid, city, events, night): editorial photo story. Cinematic controlled color, dramatic but believable light, refined contrast, strong composition, authentic moment.
 other: high-end commercial shoot. Choose the most flattering studio or location setup for the subject, with a full lighting plan, lens choice, backdrop and grade.`;
+const RETOUCH = {
+  off:      {label:'off',      note:'No skin or teeth retouching. Faces stay exactly as shot.', text:''},
+  light:    {label:'light',    note:'Evens skin tone, clears blemishes, whitens teeth about one shade. Texture stays.', text:'Light retouch: remove temporary blemishes, shine and under-eye fatigue, and even out the skin tone. Keep pores, freckles, moles, scars, wrinkles and natural skin texture clearly visible. If teeth are visible, whiten them by about one shade to a natural tone, keeping tooth shape, spacing and edges exactly as they are.'},
+  polished: {label:'polished', note:'Beauty-grade smoothing and brighter teeth. Features and age stay.', text:'Polished retouch: smooth the skin evenly in the style of high-end beauty retouching, keeping fine texture visible so it never looks plastic. Freckles, moles and scars stay. If teeth are visible, whiten them to a bright but natural shade, keeping tooth shape, spacing and edges exactly as they are. Brighten the whites of the eyes slightly. This must never change face shape, features or the apparent age.'}
+};
 const IDENTITY = 'Identity lock: the main subject must stay unmistakably the same: same person or people (face, features, skin tone, hair, age, body proportions, expression), same animal, same dish and ingredients, same vehicle (make, model, color, trim), same product (shape, materials, branding, text). Everything else may be reimagined. Keep the output aspect ratio the same as the attached photo. Photorealistic photograph, not an illustration. No added text, borders or watermarks. Output one image.';
 const GUARD_REFINE = 'Hard constraints: keep the exact same subject(s), identity, faces, expressions, pose, objects, logos, text, composition, framing and aspect ratio. Do not add or remove people or objects. Do not add text, borders or watermarks. Output one photographic image.';
 
@@ -500,7 +514,7 @@ async function verifyFaces(crops, resultBlob, signal) {
   const { text } = getSettings();
   try {
     const res = await toJpegB64(resultBlob, 1536);
-    const instruction = `You are a forensic face comparison reviewer. The first ${crops.length} image(s) are close-ups of the people in an ORIGINAL photo. The last image is a NEW photo that should show the same people. Decide whether each original person appears in the new photo with an identical face. Judge only facial identity: bone structure, eyes, nose, mouth, ears, hairline, facial hair, age and skin tone. Ignore lighting, background, clothing, color grade and sharpness.
+    const instruction = `You are a forensic face comparison reviewer. The first ${crops.length} image(s) are close-ups of the people in an ORIGINAL photo. The last image is a NEW photo that should show the same people. Decide whether each original person appears in the new photo with an identical face. Judge only facial identity: bone structure, eyes, nose, mouth, ears, hairline, facial hair, age and skin tone. Ignore lighting, background, clothing, color grade, sharpness, skin smoothing, blemish removal and teeth whitening.
 Return ONLY JSON: {"score": integer 1 to 10 (10 = indistinguishable, 7 = clearly the same person with small differences, 4 = resembles but is a different person, 1 = unrelated), "differences": array of up to 4 short strings naming specific facial differences}.`;
     const json = await gemini(text, {
       contents: [{ role: 'user', parts: [{ text: instruction }, ...crops.map(d => ({ inlineData: { mimeType: 'image/jpeg', data: d } })), { inlineData: { mimeType: 'image/jpeg', data: res } }] }],
@@ -583,7 +597,7 @@ async function regenerate(photo, promptText, presetKey, signal, strict) {
   const crops = people ? (an.crops || []) : [];
   const model = people ? st.people : st.image;
   const style = `Style direction: ${PRESETS[presetKey].clause}`;
-  const lock = people ? `PEOPLE LOCK: Image 1 is the photograph to edit.${crops.length ? ` Image${crops.length > 1 ? 's 2 to ' + (crops.length + 1) + ' are close-ups' : ' 2 is a close-up'} of the faces in it, given as identity references.` : ''} Every person must remain exactly who they are: keep each face, head shape, bone structure, eyes, nose, mouth, ears, skin tone and texture, hair, facial hair, age, expression, gaze direction and body proportions identical to the original photo${crops.length ? ' and the close-ups' : ''}. ${an.identity ? 'Identifying features that must be preserved: ' + an.identity + '. ' : ''}Do not beautify, slim, smooth skin, change age, change expression, or replace anyone with a similar looking different person. Only the environment, lighting, camera look, color grade and wardrobe polish may change.` : '';
+  const lock = people ? `PEOPLE LOCK: Image 1 is the photograph to edit.${crops.length ? ` Image${crops.length > 1 ? 's 2 to ' + (crops.length + 1) + ' are close-ups' : ' 2 is a close-up'} of the faces in it, given as identity references.` : ''} Every person must remain exactly who they are: keep each face, head shape, bone structure, eyes, nose, mouth, ears, skin tone${S.retouch === 'off' ? ' and texture' : ''}, hair, facial hair, age, expression, gaze direction and body proportions identical to the original photo${crops.length ? ' and the close-ups' : ''}. ${an.identity ? 'Identifying features that must be preserved: ' + an.identity + '. ' : ''}${S.retouch === 'off' ? 'Do not beautify, slim, smooth skin, change age, change expression, or replace anyone with a similar looking different person. Only the environment, lighting, camera look, color grade and wardrobe polish may change.' : 'Do not slim, reshape or otherwise alter any facial or body feature, change age, change expression, or replace anyone with a similar looking different person. ' + RETOUCH[S.retouch].text + ' Apart from this retouching, only the environment, lighting, camera look, color grade and wardrobe polish may change.'}` : '';
   const retry = strict ? `\n\nThe previous attempt failed an identity check. Differences found: ${strict}. Correct this: the faces must match the original exactly.` : '';
   const tail = people ? '\n\nReminder: the people must look identical to the original photo.' : '';
   let full;
@@ -630,9 +644,10 @@ async function prepare(file) {
 }
 
 /* ---------- state + view ---------- */
-const S = { photo: null, analysis: null, preset: store.get('es07.preset', 'editorial'), intensity: store.get('es07.intensity', 'magazine'), resultBlob: null, resultUrl: null, busy: false, ctl: null, mode: 'slide', pos: 50, lastRun: null, t0: 0, tick: null };
+const S = { photo: null, analysis: null, preset: store.get('es07.preset', 'editorial'), intensity: store.get('es07.intensity', 'magazine'), retouch: store.get('es07.retouch', 'light'), resultBlob: null, resultUrl: null, busy: false, ctl: null, mode: 'slide', pos: 50, lastRun: null, t0: 0, tick: null };
 if (!PRESETS[S.preset]) S.preset = 'editorial';
 if (!INTENSITY[S.intensity]) S.intensity = 'magazine';
+if (!RETOUCH[S.retouch]) S.retouch = 'light';
 
 function show(view) {
   for (const v of ['start', 'work', 'lib']) $('#v-' + v).hidden = v !== view;
@@ -660,6 +675,21 @@ function renderIntensity() {
     }
   }
   $('#int-note').textContent = INTENSITY[S.intensity].note;
+}
+function renderRetouch() {
+  for (const id of ['#rt-start', '#rt-work']) {
+    const box = $(id); box.textContent = '';
+    for (const [k, v] of Object.entries(RETOUCH)) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = v.label; b.dataset.r = k;
+      b.setAttribute('aria-pressed', String(S.retouch === k)); box.appendChild(b);
+    }
+  }
+  $('#rt-note').textContent = RETOUCH[S.retouch].note + ' Applies only when people are detected.';
+}
+function setRetouch(k) {
+  if (k === S.retouch) return;
+  S.retouch = k; store.set('es07.retouch', k); renderRetouch();
+  if (S.photo && S.analysis && !S.busy && (S.analysis.people || 0) > 0) regen();
 }
 function setIntensity(k) {
   if (k === S.intensity) return;
@@ -758,6 +788,7 @@ async function runRegen() {
   const canCheck = people && mode !== 'off' && (S.analysis.crops || []).length > 0;
   const retries = canCheck ? parseInt(mode, 10) || 0 : 0;
   $('#status li[data-s=check]').hidden = !canCheck;
+  $('#rt-work-box').hidden = !people;
   setFace(null);
   let best = null, strict = '';
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -908,10 +939,10 @@ $('#cancel').onclick = () => S.ctl && S.ctl.abort();
 $('#new').onclick = () => { if (S.ctl && S.busy) S.ctl.abort(); setBusy(false); resetResult(); show('start'); };
 $('#home').onclick = () => { if (S.busy) return; show(S.photo ? 'work' : 'start'); };
 $$('[data-nav]').forEach(b => b.onclick = () => { if (b.dataset.nav === 'library') show('lib'); else show(S.photo ? 'work' : 'start'); });
-document.addEventListener('click', e => { const b = e.target.closest('#int-start button, #int-work button'); if (b) setIntensity(b.dataset.i); });
+document.addEventListener('click', e => { const b = e.target.closest('#int-start button, #int-work button'); if (b) setIntensity(b.dataset.i); const r = e.target.closest('#rt-start button, #rt-work button'); if (r) setRetouch(r.dataset.r); });
 window.addEventListener('resize', sizeStage);
 
-renderPresets(); renderIntensity(); refreshModelsLine();
+renderPresets(); renderIntensity(); renderRetouch(); refreshModelsLine();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__polish = { S, startFlow }; // test hook
 })();
