@@ -1,0 +1,59 @@
+# Codemagic: builds the native polish iOS app (ios/) and uploads it to App Store Connect for TestFlight.
+# The web app at the repo root is untouched; this only runs when ios/ or this file changes.
+#
+# Before the first build, replace the two values marked CHANGE ME (see ios/README.md, "First build").
+
+workflows:
+  polish-ios-testflight:
+    name: polish iOS to TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: eitanshay
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.eitanshay.polish
+      vars:
+        XCODE_PROJECT: "ios/Polish.xcodeproj"
+        XCODE_SCHEME: "Polish"
+        APP_STORE_APPLE_ID: 6838431822
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    when:
+      changeset:
+        includes:
+          - "ios/**"
+          - "codemagic.yaml"
+    scripts:
+      - name: Run core unit tests
+        script: |
+          cd "$CM_BUILD_DIR/ios/PolishCore"
+          swift test
+      - name: Set up code signing on the Xcode project
+        script: xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd "$CM_BUILD_DIR/ios"
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          agvtool new-version -all $((${LATEST_BUILD_NUMBER:-0} + 1))
+      - name: Build ipa
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload only. Internal testers (you) get the build in TestFlight once Apple finishes processing,
+        # with no beta review. Set to true and add beta_groups only for external testers.
+        submit_to_testflight: false
